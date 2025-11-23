@@ -1,0 +1,67 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Recursive Intelligence Journal Generator (RIJG)
+  Serverless app that processes conversation JSON with Gemini and outputs Markdown journals
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 512
+    Runtime: python3.11
+
+Resources:
+  JournalGeneratorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      Handler: app.lambda_handler
+      Runtime: python3.11
+      Timeout: 30
+      Environment:
+        Variables:
+          USER_CREDITS_TABLE_NAME: !Ref UserCreditsTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UserCreditsTable
+      Events:
+        JournalApi:
+          Type: Api
+          Properties:
+            Path: /journal
+            Method: POST
+            RestApiId: !Ref JournalApi
+
+  JournalApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: Prod
+      Cors:
+        AllowMethods: "'POST, OPTIONS'"
+        AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+        AllowOrigin: "'*'"
+
+  UserCreditsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: RIJG-UserCredits
+      AttributeDefinitions:
+        - AttributeName: user_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: user_id
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+
+Outputs:
+  JournalApiUrl:
+    Description: "API Gateway endpoint URL for Prod stage"
+    Value: !Sub "https://${JournalApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/journal"
+
+  JournalGeneratorFunctionArn:
+    Description: "Journal Generator Lambda Function ARN"
+    Value: !GetAtt JournalGeneratorFunction.Arn
+
+  UserCreditsTableName:
+    Description: "DynamoDB table name for user credits"
+    Value: !Ref UserCreditsTable

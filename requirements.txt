@@ -1,0 +1,7 @@
+google-genai
+pydantic
+jinja2
+python-dotenv
+boto3
+pytest
+aws-sam-cli
