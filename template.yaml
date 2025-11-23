@@ -4,6 +4,12 @@ Description: >
   Recursive Intelligence Journal Generator (RIJG)
   Serverless app that processes conversation JSON with Gemini and outputs Markdown journals
 
+Parameters:
+  GeminiApiKey:
+    Type: String
+    NoEcho: true
+    Description: The API key for Google Gemini
+
 Globals:
   Function:
     Timeout: 30
@@ -21,6 +27,7 @@ Resources:
       Environment:
         Variables:
           USER_CREDITS_TABLE_NAME: !Ref UserCreditsTable
+          GEMINI_API_KEY: !Ref GeminiApiKey
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref UserCreditsTable

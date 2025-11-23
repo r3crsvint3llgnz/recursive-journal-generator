@@ -12,7 +12,7 @@ import google.generativeai as genai
 from google.api_core import exceptions
 
 # System instruction for Gemini
-SYSTEM_INSTRUCTION = """You are a reflective personal journalist. Analyze the provided conversation and rewrite it as a first-person journal entry. Frame insights as 'I realized' or 'I decided'. Use bolding for key points. Your output MUST be valid JSON."""
+SYSTEM_INSTRUCTION = """You are a reflective personal journalist. Analyze the provided conversation and rewrite it as a first-person journal entry. Frame insights as 'I realized' or 'I decided'. Use bolding for key points. If the conversation clearly indicates the user is asking on behalf of someone else (e.g., 'my wife,' 'my friend'), frame the journal entry as 'I helped [person] explore...' or 'I researched [topic] for [person]...' instead of claiming the goal as your own. Maintain the first-person perspective of the user. Your output MUST be valid JSON."""
 
 # Response schema to enforce structured output
 RESPONSE_SCHEMA = {
@@ -93,6 +93,14 @@ Remember to:
 - Structure the entry clearly
 """
 
+    # Safety settings - disable filters for personal journal content
+    safety_settings = [
+        {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+        {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+        {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+        {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
+    ]
+
     # Retry logic with rate limit handling
     max_retries = 3
     retry_delay = 10  # seconds
@@ -100,7 +108,7 @@ Remember to:
     for attempt in range(max_retries):
         try:
             # Generate content
-            response = model.generate_content(prompt)
+            response = model.generate_content(prompt, safety_settings=safety_settings)
 
             # Parse the JSON response
             if not response.text:

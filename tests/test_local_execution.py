@@ -1,17 +1,21 @@
 """
-Local Execution Test Script - Batch Mode
+Local Execution Test Script - Random Stress Test
 
 Tests the complete Lambda pipeline locally using mock DynamoDB and real Gemini API.
-Processes all conversations from a randomly selected date.
+Processes 10 randomly selected conversations from the entire dataset.
+
+Usage:
+    python tests/test_local_execution.py          # New random selection
+    python tests/test_local_execution.py --rerun  # Rerun with last selection
 """
 
 import json
 import os
 import sys
 import random
+import argparse
 from pathlib import Path
 from datetime import datetime
-from collections import defaultdict
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -51,31 +55,30 @@ def load_all_conversations():
     return data
 
 
-def group_conversations_by_date(conversations):
-    """
-    Group conversations by their creation date (YYYY-MM-DD).
+def save_test_selection(conversations):
+    """Save the selected conversations for potential rerun."""
+    selection_path = Path(__file__).parent / "last_test_selection.json"
 
-    Args:
-        conversations: List of conversation dictionaries
+    with open(selection_path, "w", encoding="utf-8") as f:
+        json.dump(conversations, f, indent=2)
 
-    Returns:
-        Dictionary mapping date strings to lists of conversations
-    """
-    grouped = defaultdict(list)
+    print(f"✓ Saved test selection to: {selection_path}")
 
-    for conv in conversations:
-        create_time = conv.get("create_time")
-        if create_time:
-            # Convert Unix timestamp to date string
-            dt = datetime.fromtimestamp(create_time)
-            date_str = dt.strftime("%Y-%m-%d")
-        else:
-            # Use current date if no timestamp
-            date_str = datetime.now().strftime("%Y-%m-%d")
 
-        grouped[date_str].append(conv)
+def load_test_selection():
+    """Load previously saved test selection."""
+    selection_path = Path(__file__).parent / "last_test_selection.json"
 
-    return dict(grouped)
+    if not selection_path.exists():
+        raise FileNotFoundError(
+            "No previous test selection found. Run without --rerun first."
+        )
+
+    with open(selection_path, "r", encoding="utf-8") as f:
+        conversations = json.load(f)
+
+    print(f"✓ Loaded previous test selection: {len(conversations)} conversations")
+    return conversations
 
 
 def process_conversation(conversation_data, index, total):
@@ -90,9 +93,8 @@ def process_conversation(conversation_data, index, total):
     Returns:
         Tuple of (success: bool, markdown: str or None, metadata: dict or None, error: str or None)
     """
-    print(
-        f"\n[{index}/{total}] Processing: {conversation_data.get('title', 'Unknown')[:60]}..."
-    )
+    title = conversation_data.get("title", "Unknown")
+    print(f"\n[{index}/{total}] Processing: {title[:60]}...")
 
     # Construct Lambda event
     event = {
@@ -126,9 +128,21 @@ def process_conversation(conversation_data, index, total):
 
 
 def main():
-    """Run the batch test execution."""
+    """Run the random stress test."""
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(description="Run journal generation stress test")
+    parser.add_argument(
+        "--rerun",
+        action="store_true",
+        help="Rerun test with the same conversations from last run",
+    )
+    args = parser.parse_args()
+
     print("=" * 80)
-    print("RECURSIVE INTELLIGENCE JOURNAL GENERATOR - BATCH TEST")
+    if args.rerun:
+        print("RECURSIVE INTELLIGENCE JOURNAL GENERATOR - RERUN TEST")
+    else:
+        print("RECURSIVE INTELLIGENCE JOURNAL GENERATOR - RANDOM STRESS TEST")
     print("=" * 80)
     print()
 
@@ -142,48 +156,56 @@ def main():
     print(f"✓ AWS_SAM_LOCAL: {os.environ.get('AWS_SAM_LOCAL')}")
     print()
 
-    # Load all conversations
-    print("Loading conversations...")
-    try:
-        all_conversations = load_all_conversations()
-        print(f"✓ Loaded {len(all_conversations)} total conversations")
-    except FileNotFoundError as e:
-        print(f"ERROR: {e}")
-        return
-    except json.JSONDecodeError as e:
-        print(f"ERROR: Invalid JSON in conversations.json: {e}")
-        return
+    # Load or select conversations
+    if args.rerun:
+        # Rerun mode - load previous selection
+        print("Loading previous test selection...")
+        try:
+            selected_conversations = load_test_selection()
+            sample_size = len(selected_conversations)
+            is_rerun = True
+        except FileNotFoundError as e:
+            print(f"ERROR: {e}")
+            return
+    else:
+        # Normal mode - random selection
+        print("Loading conversations...")
+        try:
+            all_conversations = load_all_conversations()
+            print(f"✓ Loaded {len(all_conversations)} total conversations")
+        except FileNotFoundError as e:
+            print(f"ERROR: {e}")
+            return
+        except json.JSONDecodeError as e:
+            print(f"ERROR: Invalid JSON in conversations.json: {e}")
+            return
+
+        # Select 10 random conversations (or all if less than 10)
+        sample_size = min(10, len(all_conversations))
+        selected_conversations = random.sample(all_conversations, sample_size)
+
+        # Save the selection for potential rerun
+        save_test_selection(selected_conversations)
+        is_rerun = False
+
     print()
-
-    # Group by date
-    print("Grouping conversations by date...")
-    grouped = group_conversations_by_date(all_conversations)
-    print(f"✓ Found conversations across {len(grouped)} different dates")
-
-    # Display date summary
-    for date_str in sorted(grouped.keys()):
-        print(f"  - {date_str}: {len(grouped[date_str])} conversations")
-    print()
-
-    # Select random date
-    selected_date = random.choice(list(grouped.keys()))
-    selected_conversations = grouped[selected_date]
 
     print("=" * 80)
-    print(
-        f"Selected Date: {selected_date} | Conversations found: {len(selected_conversations)}"
-    )
+    if is_rerun:
+        print(f"Rerunning Test: {sample_size} conversations (same as last run)")
+    else:
+        print(f"Randomly Selected: {sample_size} conversations for stress test")
     print("=" * 80)
     print()
 
-    # Process all conversations from selected date
+    # Process all selected conversations
     results = []
     successful = 0
     failed = 0
 
     for idx, conversation in enumerate(selected_conversations, 1):
         success, markdown, metadata, error = process_conversation(
-            conversation, idx, len(selected_conversations)
+            conversation, idx, sample_size
         )
 
         results.append(
@@ -204,25 +226,33 @@ def main():
     # Summary
     print()
     print("=" * 80)
-    print("BATCH PROCESSING COMPLETE")
+    print("STRESS TEST COMPLETE")
     print("=" * 80)
-    print(
-        f"Total: {len(selected_conversations)} | Success: {successful} | Failed: {failed}"
-    )
+    print(f"Total: {sample_size} | Success: {successful} | Failed: {failed}")
     print()
 
     # Write output file
-    output_path = Path(__file__).parent / f"output_test_{selected_date}.md"
+    if is_rerun:
+        output_path = Path(__file__).parent / "output_test_random_10_rerun.md"
+    else:
+        output_path = Path(__file__).parent / "output_test_random_10.md"
 
     print(f"Writing results to: {output_path}")
 
     with open(output_path, "w", encoding="utf-8") as f:
         # Write header
-        f.write(f"# Journal Generation Test Results\n\n")
-        f.write(f"**Date:** {selected_date}\n\n")
-        f.write(f"**Total Conversations:** {len(selected_conversations)}\n\n")
+        f.write(f"# Journal Generation Stress Test Results\n\n")
+        if is_rerun:
+            f.write(f"**Test Type:** Rerun (Same Conversations)\n\n")
+        else:
+            f.write(f"**Test Type:** Random Sample\n\n")
+        f.write(f"**Sample Size:** {sample_size}\n\n")
+        if not is_rerun:
+            f.write(f"**Total Conversations in Dataset:** {len(all_conversations)}\n\n")
         f.write(f"**Successful:** {successful}\n\n")
         f.write(f"**Failed:** {failed}\n\n")
+        f.write(f"**Success Rate:** {(successful/sample_size*100):.1f}%\n\n")
+        f.write(f"**Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
         f.write("---\n\n")
 
         # Write each result
@@ -249,7 +279,15 @@ def main():
 
     print(f"✓ Output written to: {output_path}")
     print()
-    print("=" * 80)
+
+    if is_rerun:
+        print("=" * 80)
+        print("TIP: Compare with 'output_test_random_10.md' to see the differences")
+        print("=" * 80)
+    else:
+        print("=" * 80)
+        print("TIP: Run with '--rerun' flag to test the same conversations again")
+        print("=" * 80)
 
 
 if __name__ == "__main__":
