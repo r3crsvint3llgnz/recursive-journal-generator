@@ -39,6 +39,28 @@ Resources:
             Method: POST
             RestApiId: !Ref JournalApi
 
+  ConversationImportFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      Handler: import_handler.lambda_handler
+      Runtime: python3.11
+      Timeout: 60
+      Environment:
+        Variables:
+          CONVERSATION_TABLE_NAME: !Ref ConversationTable
+      Policies:
+        - S3ReadPolicy:
+            BucketName: !Ref RawConversationBucket
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ConversationTable
+      Events:
+        ImportUpload:
+          Type: S3
+          Properties:
+            Bucket: !Ref RawConversationBucket
+            Events: s3:ObjectCreated:*
+
   JournalApi:
     Type: AWS::Serverless::Api
     Properties:
@@ -60,6 +82,36 @@ Resources:
           KeyType: HASH
       BillingMode: PAY_PER_REQUEST
 
+  ConversationTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: RIJG-Conversations
+      AttributeDefinitions:
+        - AttributeName: user_id
+          AttributeType: S
+        - AttributeName: sort_key
+          AttributeType: S
+      KeySchema:
+        - AttributeName: user_id
+          KeyType: HASH
+        - AttributeName: sort_key
+          KeyType: RANGE
+      BillingMode: PAY_PER_REQUEST
+
+  RawConversationBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders: ['*']
+            AllowedMethods: [PUT, POST, GET]
+            AllowedOrigins: ['*']
+            MaxAge: 3000
+
 Outputs:
   JournalApiUrl:
     Description: "API Gateway endpoint URL for Prod stage"
@@ -72,3 +124,11 @@ Outputs:
   UserCreditsTableName:
     Description: "DynamoDB table name for user credits"
     Value: !Ref UserCreditsTable
+
+  ConversationTableName:
+    Description: "DynamoDB table name for imported conversations"
+    Value: !Ref ConversationTable
+
+  RawConversationBucketName:
+    Description: "S3 bucket receiving uploaded chat exports"
+    Value: !Ref RawConversationBucket
