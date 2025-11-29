@@ -7,11 +7,12 @@ This document explains how ChatGPT JSON exports move from the web client into no
 2. **S3 Event Trigger** – When the object lands in the bucket, S3 emits an event that invokes `ConversationImportFunction`.
 3. **Normalization** – The Lambda downloads the JSON, iterates each conversation, and reuses `parse_conversation` to extract metadata, transcript, and clean text.
 4. **Storage** – Normalized entries are written to the `RIJG-Conversations` DynamoDB table with per-user partition keys so downstream services can query imports quickly.
-5. **Status Updates** – The handler returns a summary payload that can be surfaced in CloudWatch logs (total processed, skipped, failures). A future iteration can push these metrics to a notification topic for the UI.
+5. **Status Updates** – The handler returns a summary payload that can be surfaced in CloudWatch logs (total processed, skipped, failures). `/imports/status` exposes a query endpoint backed by DynamoDB so the frontend can show recent uploads.
 
 ## 2. AWS Resources
 - `RawConversationBucket` – Stores uploaded exports. Versioning disabled for MVP, but server-side encryption is on by default. Objects must use the `imports/<user_id>/...` prefix so the handler can infer the owner.
 - `UploadRequestFunction` – API-driven Lambda defined in `src/upload_handler.py`. Generates pre-signed URLs for authenticated users.
+- `ImportStatusFunction` – API-driven Lambda defined in `src/import_status_handler.py`. Returns recent imports for the authenticated user.
 - `ConversationImportFunction` – Python Lambda defined in `src/import_handler.py`. Triggered by S3 `ObjectCreated:*` events.
 - `RIJG-Conversations` table – DynamoDB table keyed by `user_id` (partition) and `sort_key` (format: `date#conversation_id`). Stores normalized metadata plus raw/transcript fields for later rendering.
 

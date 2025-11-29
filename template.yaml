@@ -61,6 +61,52 @@ Resources:
             Bucket: !Ref RawConversationBucket
             Events: s3:ObjectCreated:*
 
+  UploadRequestFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      Handler: upload_handler.lambda_handler
+      Runtime: python3.11
+      Timeout: 30
+      Environment:
+        Variables:
+          RAW_CONVERSATION_BUCKET: !Ref RawConversationBucket
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - s3:PutObject
+                - s3:GetObject
+              Resource: !Sub "arn:aws:s3:::${RawConversationBucket}/imports/*"
+      Events:
+        UploadApi:
+          Type: Api
+          Properties:
+            Path: /imports/upload-url
+            Method: POST
+            RestApiId: !Ref JournalApi
+
+  ImportStatusFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      Handler: import_status_handler.lambda_handler
+      Runtime: python3.11
+      Timeout: 30
+      Environment:
+        Variables:
+          CONVERSATION_TABLE_NAME: !Ref ConversationTable
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref ConversationTable
+      Events:
+        ImportStatusApi:
+          Type: Api
+          Properties:
+            Path: /imports/status
+            Method: GET
+            RestApiId: !Ref JournalApi
+
   JournalApi:
     Type: AWS::Serverless::Api
     Properties:
