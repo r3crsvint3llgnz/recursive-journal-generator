@@ -28,7 +28,7 @@ def _extract_user_id(event: Dict[str, Any]) -> str:
 def _fetch_recent_imports(user_id: str, limit: int = 5):
     response = conversation_table.query(
         KeyConditionExpression=Key("user_id").eq(user_id),
-        ProjectionExpression="import_id, title, #st, date",
+        ProjectionExpression="import_id, title, #st",
         ExpressionAttributeNames={"#st": "status"},
         Limit=limit,
         ScanIndexForward=False,

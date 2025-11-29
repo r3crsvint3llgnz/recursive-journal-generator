@@ -1,0 +1,30 @@
+# Dependency Review Configuration
+# https://github.com/actions/dependency-review-action
+
+fail-on-severity: moderate
+
+allow-licenses:
+  - MIT
+  - Apache-2.0
+  - BSD-2-Clause
+  - BSD-3-Clause
+  - ISC
+  - 0BSD
+
+deny-licenses:
+  - GPL-3.0
+  - AGPL-3.0
+
+allow-dependencies-licenses:
+  - pkg:npm/@aws-amplify/*
+  - pkg:npm/react
+  - pkg:npm/react-dom
+  - pkg:npm/vite
+
+# Fail if dependencies are removed
+fail-on-scopes:
+  - development
+  - runtime
+
+# Comment on PRs with results
+comment-summary-in-pr: always

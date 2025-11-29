@@ -1,0 +1,13 @@
+version = 0.1
+
+[default.deploy.parameters]
+stack_name = "RIJG-MVP"
+resolve_s3 = true
+s3_prefix = "RIJG-MVP"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM"
+parameter_overrides = "UserPoolArn=\"arn:aws:cognito-idp:us-east-2:843475473749:userpool/us-east-2_nrLTcPUqC\" UserPoolAudience=\"55i83a25ec703n2toafjga9oja\""
+image_repositories = []
+
+[default.global.parameters]
+region = "us-east-2"

@@ -13,12 +13,14 @@ cd frontend
 npm install
 ```
 
-Create a `.env.local` (or use `VITE_` vars in your CI) defining the API Gateway base URL that exposes the Lambda routes:
+Create a `.env.local` (or use `VITE_` vars in your CI) defining the API Gateway base URL (and any additional headers your deployment requires):
 
 ```bash
-echo "VITE_API_BASE_URL=https://example.execute-api.us-east-1.amazonaws.com/Prod" > .env.local
+cat <<'EOF' > .env.local
+VITE_API_BASE_URL=https://example.execute-api.us-east-1.amazonaws.com/Prod
+EOF
 ```
-This value powers the pre-signed upload flow on the dashboard.
+These values power the pre-signed upload flow on the dashboard. If you later introduce custom headers (like an API key), add them here as `VITE_...` entries and update the fetch helper accordingly.
 
 ## 3. Initialize Amplify Backend
 ```bash
@@ -36,7 +38,7 @@ Recommended answers:
 ```bash
 amplify add auth
 ```
-Choose the `Default configuration with Social Provider` option if you want Google sign-in like the placeholder UI, or select email/password for MVP. After configuration, run `amplify push` to create the Cognito resources. The CLI generates an `aws-exports.js` file—copy/replace the placeholder located at `frontend/src/aws-exports.js`.
+Choose the `Default configuration with Social Provider` option if you want Google sign-in like the placeholder UI, or select email/password for MVP. After configuration, run `amplify push` to create the Cognito resources. The CLI generates an `aws-exports.js` file—copy/replace the placeholder located at `frontend/src/aws-exports.js`. When deploying the backend with SAM, pass the user pool ARN and app client ID as `UserPoolArn` and `UserPoolAudience` parameters so API Gateway can validate these Amplify-issued tokens.
 
 ## 5. Optional Hosting
 To take advantage of Amplify Hosting:

@@ -55,6 +55,21 @@ def _process_record(record: Dict[str, Any]) -> Dict[str, Any]:
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     records = event.get("Records", [])
+
+    # Handle SNS notifications that wrap S3 events
+    if records and records[0].get("EventSource") == "aws:sns":
+        sns_records = []
+        for record in records:
+            message = record.get("Sns", {}).get("Message")
+            if not message:
+                continue
+            try:
+                payload = json.loads(message)
+            except json.JSONDecodeError:
+                continue
+            sns_records.extend(payload.get("Records", []))
+        records = sns_records
+
     if not records:
         raise ValueError("No records to process")
 

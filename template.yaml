@@ -9,6 +9,12 @@ Parameters:
     Type: String
     NoEcho: true
     Description: The API key for Google Gemini
+  UserPoolArn:
+    Type: String
+    Description: Cognito User Pool ARN used for API authorization
+  UserPoolAudience:
+    Type: String
+    Description: Cognito User Pool app client ID (audience)
 
 Globals:
   Function:
@@ -54,12 +60,6 @@ Resources:
             BucketName: !Ref RawConversationBucket
         - DynamoDBCrudPolicy:
             TableName: !Ref ConversationTable
-      Events:
-        ImportUpload:
-          Type: S3
-          Properties:
-            Bucket: !Ref RawConversationBucket
-            Events: s3:ObjectCreated:*
 
   UploadRequestFunction:
     Type: AWS::Serverless::Function
@@ -115,6 +115,14 @@ Resources:
         AllowMethods: "'POST, OPTIONS'"
         AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
         AllowOrigin: "'*'"
+      Auth:
+        DefaultAuthorizer: CognitoAuthorizer
+        Authorizers:
+          CognitoAuthorizer:
+            UserPoolArn: !Ref UserPoolArn
+            Identity:
+              Headers:
+                - Authorization
 
   UserCreditsTable:
     Type: AWS::DynamoDB::Table
@@ -153,10 +161,45 @@ Resources:
               SSEAlgorithm: AES256
       CorsConfiguration:
         CorsRules:
-          - AllowedHeaders: ['*']
+          - AllowedHeaders: ["*"]
             AllowedMethods: [PUT, POST, GET]
-            AllowedOrigins: ['*']
+            AllowedOrigins: ["*"]
             MaxAge: 3000
+
+  ConversationImportBucketPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref ConversationImportFunction
+      Action: lambda:InvokeFunction
+      Principal: s3.amazonaws.com
+      SourceArn: !GetAtt RawConversationBucket.Arn
+
+  BucketNotificationHandler:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      Handler: bucket_notification_handler.lambda_handler
+      Runtime: python3.11
+      Timeout: 60
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - Statement:
+            - Effect: Allow
+              Action:
+                - s3:PutBucketNotificationConfiguration
+                - s3:GetBucketNotificationConfiguration
+                - s3:PutBucketNotification # Required for deletion during stack teardown
+              Resource: !GetAtt RawConversationBucket.Arn
+
+  BucketNotificationCustom:
+    Type: Custom::BucketNotifications
+    Properties:
+      ServiceToken: !GetAtt BucketNotificationHandler.Arn
+      BucketName: !Ref RawConversationBucket
+      LambdaArn: !GetAtt ConversationImportFunction.Arn
+    DependsOn:
+      - ConversationImportBucketPermission
+      - BucketNotificationHandler
 
 Outputs:
   JournalApiUrl:

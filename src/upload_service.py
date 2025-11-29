@@ -24,8 +24,9 @@ def create_presigned_post(user_id: str, content_type: str = "application/json") 
     key, import_id = build_import_key(user_id)
 
     conditions = [
-        {"Content-Type": content_type},
-        ["content-length-range", 1, 50 * 1024 * 1024],
+        # Avoid strict Content-Type condition (can cause browser mismatch errors)
+        # Allow larger uploads up to 100 MiB for chat exports
+        ["content-length-range", 1, 100 * 1024 * 1024],
     ]
 
     presigned = s3_client.generate_presigned_post(
