@@ -13,6 +13,13 @@ cd frontend
 npm install
 ```
 
+Create a `.env.local` (or use `VITE_` vars in your CI) defining the API Gateway base URL that exposes the Lambda routes:
+
+```bash
+echo "VITE_API_BASE_URL=https://example.execute-api.us-east-1.amazonaws.com/Prod" > .env.local
+```
+This value powers the pre-signed upload flow on the dashboard.
+
 ## 3. Initialize Amplify Backend
 ```bash
 amplify init

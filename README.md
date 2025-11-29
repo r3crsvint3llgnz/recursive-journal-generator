@@ -15,4 +15,4 @@ Recursive Intelligence Journal Generator (RIJG) is an automated serverless pipel
 ## Getting Started
 1. **Backend:** Use the SAM template (`template.yaml`) to deploy Lambda functions, DynamoDB tables, and the S3 uploads bucket.
 2. **Frontend:** Follow `docs/FRONTEND_SETUP.md` to initialize Amplify, configure Cognito auth, and run `npm run dev`.
-3. **Import Pipeline:** Upload chat exports to the `RawConversationBucket` using the `imports/<user>/<import>.json` key structure. The `ConversationImportFunction` normalizes data into DynamoDB for downstream processing.
+3. **Import Pipeline:** Request a pre-signed upload target from `/imports/upload-url` (requires Cognito-authenticated caller), upload the export to the `RawConversationBucket`, and let the `ConversationImportFunction` normalize data into DynamoDB.

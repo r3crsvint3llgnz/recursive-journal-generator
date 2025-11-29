@@ -34,6 +34,12 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         body = json.loads(request_body) if isinstance(request_body, str) else request_body
         content_type = body.get("content_type", "application/json")
         result = create_presigned_post(user_id, content_type=content_type)
+    except json.JSONDecodeError:
+        return {
+            "statusCode": 400,
+            "headers": {"Content-Type": "application/json", "Access-Control-Allow-Origin": "*"},
+            "body": json.dumps({"error": "invalid_body", "message": "Body must be valid JSON"}),
+        }
     except Exception as exc:
         return {
             "statusCode": 500,

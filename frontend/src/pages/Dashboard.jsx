@@ -1,4 +1,11 @@
+import { useEffect, useState } from 'react'
+import UploadPanel from '../components/UploadPanel.jsx'
+import { listRecentImports } from '../lib/api.js'
+
 const Dashboard = () => {
+  const [recentImports, setRecentImports] = useState([])
+  const [importStatus, setImportStatus] = useState('Ready to accept uploads.')
+
   const nextActions = [
     {
       title: 'Connect Amplify Backend',
@@ -16,12 +23,47 @@ const Dashboard = () => {
 
   const status = [
     { label: 'Auth', state: 'Not configured', description: 'Awaiting Amplify CLI push' },
-    { label: 'Imports', state: 'Parser ready', description: 'Backend lambda runs locally' },
+    { label: 'Imports', state: 'S3 pipeline wired', description: 'Upload endpoint live' },
     { label: 'Templates', state: 'v1 available', description: 'Obsidian MD scaffold shipped' }
   ]
 
+  useEffect(() => {
+    refreshImports()
+  }, [])
+
+  const refreshImports = async () => {
+    try {
+      const data = await listRecentImports()
+      setRecentImports(data)
+      setImportStatus(data.length ? 'Showing most recent uploads.' : 'No uploads yet.')
+    } catch (error) {
+      setImportStatus(error.message)
+    }
+  }
+
+  const handleUploadComplete = async () => {
+    setImportStatus('Upload finished. Fetching status…')
+    await refreshImports()
+  }
+
   return (
-    <div className="grid two">
+    <div className="grid">
+      <UploadPanel onUploadComplete={handleUploadComplete} />
+      <section className="card">
+        <h2>Recent Imports</h2>
+        <p style={{ color: '#94a3b8' }}>{importStatus}</p>
+        <ul>
+          {recentImports.length === 0 && <li>No imports recorded yet.</li>}
+          {recentImports.map((item) => (
+            <li key={item.import_id} style={{ marginBottom: '0.75rem' }}>
+              <strong>{item.title || 'Pending conversations'}</strong>
+              <div style={{ color: '#94a3b8' }}>
+                {item.import_id} • {item.status || 'processing'}
+              </div>
+            </li>
+          ))}
+        </ul>
+      </section>
       <section className="card">
         <h2>Environment Checklist</h2>
         <ul>

@@ -3,6 +3,7 @@
 import json
 import os
 from typing import Any, Dict
+from urllib.parse import unquote_plus
 
 import boto3
 from botocore.exceptions import ClientError
@@ -23,7 +24,8 @@ conversation_table = dynamodb.Table(
 
 def _process_record(record: Dict[str, Any]) -> Dict[str, Any]:
     bucket = record["s3"]["bucket"]["name"]
-    key = record["s3"]["object"]["key"]
+    encoded_key = record["s3"]["object"]["key"]
+    key = unquote_plus(encoded_key)
 
     user_id, import_id = extract_user_and_import_from_key(key)
 
